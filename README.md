@@ -1,0 +1,1 @@
+# nodejs-passport-azure-ad-openIDConnect-v2-endpoint

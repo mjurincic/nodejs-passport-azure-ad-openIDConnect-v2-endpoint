@@ -26,26 +26,24 @@
 /******************************************************************************
  * Module dependencies.
  *****************************************************************************/
-
-var express = require('express');
-var cookieParser = require('cookie-parser');
-var expressSession = require('express-session');
-var bodyParser = require('body-parser');
-var methodOverride = require('method-override');
-var passport = require('passport');
-var util = require('util');
-var bunyan = require('bunyan');
-var config = require('./config');
+const express = require('express');
+const cookieParser = require('cookie-parser');
+const expressSession = require('express-session');
+const bodyParser = require('body-parser');
+const methodOverride = require('method-override');
+const passport = require('passport');
+const bunyan = require('bunyan');
+const config = require('./config');
 
 // set up database for express session
-var MongoStore = require('connect-mongo')(expressSession);
-var mongoose = require('mongoose');
+const MongoStore = require('connect-mongo')(expressSession);
+const mongoose = require('mongoose');
 
 // Start QuickStart here
 
-var OIDCStrategy = require('passport-azure-ad').OIDCStrategy;
+const OIDCStrategy = require('passport-azure-ad').OIDCStrategy;
 
-var log = bunyan.createLogger({
+const log = bunyan.createLogger({
     name: 'Microsoft OIDC Example Web Application'
 });
 
@@ -70,11 +68,11 @@ passport.deserializeUser(function(oid, done) {
 });
 
 // array to hold logged in users
-var users = [];
+const users = [];
 
-var findByOid = function(oid, fn) {
-  for (var i = 0, len = users.length; i < len; i++) {
-    var user = users[i];
+const findByOid = function(oid, fn) {
+  for (let i = 0, len = users.length; i < len; i++) {
+    const user = users[i];
    log.info('we are using user: ', user);
     if (user.oid === oid) {
       return fn(null, user);
@@ -118,7 +116,7 @@ passport.use(new OIDCStrategy({
     nonceMaxAmount: config.creds.nonceMaxAmount,
     useCookieInsteadOfSession: config.creds.useCookieInsteadOfSession,
     cookieEncryptionKeys: config.creds.cookieEncryptionKeys,
-    clockSkew: config.creds.clockSkew,
+    clockSkew: config.creds.clockSkew
   },
   function(iss, sub, profile, accessToken, refreshToken, done) {
     if (!profile.oid) {
@@ -145,7 +143,7 @@ passport.use(new OIDCStrategy({
 //-----------------------------------------------------------------------------
 // Config the app, include middlewares
 //-----------------------------------------------------------------------------
-var app = express();
+const app = express();
 
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
@@ -191,7 +189,7 @@ app.use(express.static(__dirname + '/../../public'));
 function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated()) { return next(); }
   res.redirect('/login');
-};
+}
 
 app.get('/', function(req, res) {
   res.render('index', { user: req.user });
@@ -262,5 +260,5 @@ app.get('/logout', function(req, res){
   });
 });
 
-app.listen(3000);
-
+const { PORT = 3000 } = process.env;
+app.listen(PORT, () => console.log(`Listening on port ${PORT}`)); // eslint-disable-line no-console

@@ -1,9 +1,45 @@
-require('dotenv-extended').load({
-    errorOnMissing: true,
-    errorOnMissing: true
-});
+const joi = require('joi');
+require('dotenv').config();
 
-exports.creds = {
+// Check for required env variables and their types.
+const envVarsSchema = joi
+  .object({
+    NODE_ENV: joi
+      .string()
+      .valid(['development', 'production', 'test', 'provision'])
+      .required(),
+    PORT: joi.number().required(),
+    LOGGER_LEVEL: joi
+      .string()
+      .valid(['error', 'warn', 'info', 'verbose', 'debug', 'silly'])
+      .default('info'),
+    LOGGER_ENABLED: joi
+      .boolean()
+      .truthy('TRUE')
+      .truthy('true')
+      .falsy('FALSE')
+      .falsy('false')
+      .default(true),
+    AZURE_AD_TENANT_GUID: joi.string().guid(),
+    AZURE_AD_CLIENT_ID: joi.string().guid(),
+    AZURE_AD_CLIENT_SECRET: joi.string(),
+    DATABASE_MONGO_URI: joi.string().uri({
+      scheme: ['mongodb']
+    })
+  })
+  .required();
+
+const { error, value: envVars } = joi.validate(process.env, envVarsSchema, {
+  abortEarly: false,
+  convert: true,
+  allowUnknown: true
+});
+if (error) {
+  throw new Error(`Environment variables validation error: ${error.message}`);
+}
+
+module.exports = {
+  creds: {
     // Required
     // 'https://login.microsoftonline.com/<tenant_name>.onmicrosoft.com/v2.0/.well-known/openid-configuration'
     // or equivalently: 'https://login.microsoftonline.com/<tenant_guid>/v2.0/.well-known/openid-configuration'
@@ -11,10 +47,12 @@ exports.creds = {
     // or you can use the common endpoint
     // 'https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration'
     // To use the common endpoint, you have to either turn `validateIssuer` off, or provide the `issuer` value.
-    identityMetadata: `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_GUID}/v2.0/.well-known/openid-configuration`,
+    identityMetadata: `https://login.microsoftonline.com/${
+      envVars.AZURE_AD_TENANT_GUID
+    }/v2.0/.well-known/openid-configuration`,
 
     // Required, the client ID of your app in AAD
-    clientID: process.env.AZURE_AD_CLIENT_ID,
+    clientID: envVars.AZURE_AD_CLIENT_ID,
 
     // Required, must be 'code', 'code id_token', 'id_token code' or 'id_token'
     // If you want to get access_token, you must use 'code', 'code id_token' or 'id_token code'
@@ -31,7 +69,7 @@ exports.creds = {
 
     // Required if `responseType` is 'code', 'id_token code' or 'code id_token'.
     // If app key contains '\', replace it with '\\'.
-    clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
+    clientSecret: envVars.AZURE_AD_CLIENT_SECRET,
 
     // Required to set to false if you don't want to validate issuer
     validateIssuer: false,
@@ -52,15 +90,20 @@ exports.creds = {
     // rollover purpose. We always use the first set of key/iv pair to encrypt cookie, but we will try every set of
     // key/iv pair to decrypt cookie. Key can be any string of length 32, and iv can be any string of length 12.
     cookieEncryptionKeys: [
-        {'key': '12345678901234567890123456789012', 'iv': '123456789012'},
-        {'key': 'abcdefghijklmnopqrstuvwxyzabcdef', 'iv': 'abcdefghijkl'}
+      { key: '12345678901234567890123456789012', iv: '123456789012' },
+      { key: 'abcdefghijklmnopqrstuvwxyzabcdef', iv: 'abcdefghijkl' }
     ],
 
     // The additional scopes we want besides 'openid'.
     // 'profile' scope is required, the rest scopes are optional.
     // (1) if you want to receive refresh_token, use 'offline_access' scope
     // (2) if you want to get access_token for graph api, use the graph api url like 'https://graph.microsoft.com/mail.read'
-    scope: ['profile', 'offline_access', 'email', 'https://graph.microsoft.com/mail.read'],
+    scope: [
+      'profile',
+      'offline_access',
+      'email',
+      'https://graph.microsoft.com/mail.read'
+    ],
 
     // Optional, 'error', 'warn' or 'info'
     loggingLevel: 'info',
@@ -72,19 +115,19 @@ exports.creds = {
     nonceMaxAmount: 5,
 
     // Optional. The clock skew allowed in token validation, the default value is 300 seconds.
-    clockSkew: null,
+    clockSkew: null
+  },
+  // The url you need to go to destroy the session with AAD
+
+  destroySessionUrl:
+    'https://login.microsoftonline.com/common/oauth2/logout?post_logout_redirect_uri=http://localhost:3000',
+  // If you want to use the mongoDB session store for session middleware; otherwise we will use the default
+  // session store provided by express-session.
+  // Note that the default session store is designed for development purpose only.
+  useMongoDBSessionStore: false,
+  // If you want to use mongoDB, provide the uri here for the database.
+  databaseUri: envVars.DATABASE_MONGO_URI,
+  // How long you want to keep session in mongoDB.
+
+  mongoDBSessionMaxAge: 24 * 60 * 60 // 1 day (unit is second)
 };
-
-// The url you need to go to destroy the session with AAD
-exports.destroySessionUrl = 'https://login.microsoftonline.com/common/oauth2/logout?post_logout_redirect_uri=http://localhost:3000';
-
-// If you want to use the mongoDB session store for session middleware; otherwise we will use the default
-// session store provided by express-session.
-// Note that the default session store is designed for development purpose only.
-exports.useMongoDBSessionStore = false;
-
-// If you want to use mongoDB, provide the uri here for the database.
-exports.databaseUri = process.env.DATABASE_MONGO_URI;
-
-// How long you want to keep session in mongoDB.
-exports.mongoDBSessionMaxAge = 24 * 60 * 60;  // 1 day (unit is second)
